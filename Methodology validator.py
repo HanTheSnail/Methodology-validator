@@ -40,7 +40,7 @@ QTYPE_REQUIREMENTS = {
     'Image Highlight': {
         'options_required': False,
         'details_required': ['description'],
-        'fix_template': 'description: Click areas on the image\nhint: Tap to highlight'
+        'fix_template': 'description: Description\nhint: Answer'
     },
     'AB': {
         'options_required': True,  # CRITICAL: Upload will fail without options
@@ -102,12 +102,20 @@ def parse_details(details_text):
         return {}
     
     details_dict = {}
+    
+    # Split by newlines first
     lines = details_text.strip().split('\n')
     
     for line in lines:
+        line = line.strip()
         if ':' in line:
             key, value = line.split(':', 1)
-            details_dict[key.strip()] = value.strip()
+            key = key.strip()
+            value = value.strip()
+            
+            # Handle values that might be empty or just whitespace
+            if key:
+                details_dict[key] = value
     
     return details_dict
 
@@ -152,13 +160,23 @@ def validate_question(qtype, qid, content, options, details, row_num):
     
     # If there are critical issues, return the problem with fix
     if issues:
-        # Build the fix
-        fixed_details = details if details else ''
+        # Build the fix - only add template if fields are actually missing
+        fixed_details = details.strip() if details else ''
+        
         if missing_required and reqs['fix_template']:
-            if fixed_details:
-                fixed_details += '\n' + reqs['fix_template']
-            else:
-                fixed_details = reqs['fix_template']
+            # Only add missing fields from template, not the whole template
+            template_dict = parse_details(reqs['fix_template'])
+            missing_lines = []
+            
+            for missing_field in missing_required:
+                if missing_field in template_dict:
+                    missing_lines.append(f"{missing_field}: {template_dict[missing_field]}")
+            
+            if missing_lines:
+                if fixed_details:
+                    fixed_details = fixed_details + '\n' + '\n'.join(missing_lines)
+                else:
+                    fixed_details = '\n'.join(missing_lines)
         
         return {
             'row': row_num,

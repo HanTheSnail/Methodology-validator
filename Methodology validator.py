@@ -71,29 +71,30 @@ QTYPE_REQUIREMENTS = {
 
 def extract_cell_text(cell):
     """Extract text from cell including dropdown content controls"""
-    text_parts = []
+    from lxml import etree
     
-    # Define Word XML namespaces
-    namespaces = {
-        'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
-    }
+    # Get all text from the cell's XML element
+    cell_element = cell._element
     
-    # Get text from paragraphs
-    for paragraph in cell.paragraphs:
-        # Check for content controls (dropdowns) using proper namespace
-        for elem in paragraph._element.xpath('.//w:sdt', namespaces=namespaces):
-            # Get the text content from dropdown
-            for text_elem in elem.xpath('.//w:t', namespaces=namespaces):
-                if text_elem.text:
-                    text_parts.append(text_elem.text)
-        
-        # Also get regular text
-        if paragraph.text and paragraph.text.strip():
-            text_parts.append(paragraph.text)
+    # Define namespace
+    ns = {'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}
     
-    # Remove duplicates (xpath and paragraph.text might overlap)
-    result = ' '.join(dict.fromkeys(text_parts)).strip()
-    return result
+    # Find all text elements in the cell (including those in content controls)
+    text_elements = cell_element.findall('.//w:t', ns)
+    
+    # Extract all text
+    text_parts = [elem.text for elem in text_elements if elem.text]
+    
+    # Remove duplicates while preserving order
+    seen = set()
+    unique_parts = []
+    for part in text_parts:
+        if part not in seen:
+            seen.add(part)
+            unique_parts.append(part)
+    
+    result = ' '.join(unique_parts).strip()
+    return result if result else ''
 
 def parse_details(details_text):
     """Parse Details column into dict"""

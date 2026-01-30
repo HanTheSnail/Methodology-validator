@@ -1,6 +1,7 @@
 import streamlit as st
 import sys
 import subprocess
+import re
 
 # Fallback: Install dependencies if not available
 try:
@@ -96,26 +97,27 @@ def extract_cell_text(cell):
     result = ' '.join(unique_parts).strip()
     return result if result else ''
 
+import re
+
 def parse_details(details_text):
-    """Parse Details column into dict"""
+    """Parse Details column into dict - handles both line-separated and space-separated formats"""
     if not details_text or not details_text.strip():
         return {}
     
     details_dict = {}
     
-    # Split by newlines first
-    lines = details_text.strip().split('\n')
+    # Use regex to find all "key: value" or "key:value" patterns
+    # This handles both newline-separated and space-separated formats
+    # Pattern: word characters/underscore, optional spaces, colon, optional spaces, value (everything until next key or end)
+    pattern = r'(\w+)\s*:\s*([^:\n]+?)(?=\s+\w+\s*:|$)'
     
-    for line in lines:
-        line = line.strip()
-        if ':' in line:
-            key, value = line.split(':', 1)
-            key = key.strip()
-            value = value.strip()
-            
-            # Handle values that might be empty or just whitespace
-            if key:
-                details_dict[key] = value
+    matches = re.findall(pattern, details_text, re.DOTALL)
+    
+    for key, value in matches:
+        key = key.strip()
+        value = value.strip()
+        if key:
+            details_dict[key] = value
     
     return details_dict
 
@@ -151,9 +153,11 @@ def validate_question(qtype, qid, content, options, details, row_num):
     # CRITICAL: Check if required Details fields are missing
     details_dict = parse_details(details)
     missing_required = []
+    
     for req_field in reqs['details_required']:
         if req_field not in details_dict:
             missing_required.append(req_field)
+
     
     if missing_required:
         issues.append(f"Details missing required fields: {', '.join(missing_required)} - upload will FAIL")

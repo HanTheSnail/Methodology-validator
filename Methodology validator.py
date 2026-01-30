@@ -73,12 +73,17 @@ def extract_cell_text(cell):
     """Extract text from cell including dropdown content controls"""
     text_parts = []
     
+    # Define Word XML namespaces
+    namespaces = {
+        'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
+    }
+    
     # Get text from paragraphs
     for paragraph in cell.paragraphs:
-        # Check for content controls (dropdowns)
-        for elem in paragraph._element.xpath('.//w:sdt'):
+        # Check for content controls (dropdowns) using proper namespace
+        for elem in paragraph._element.xpath('.//w:sdt', namespaces=namespaces):
             # Get the text content from dropdown
-            for text_elem in elem.xpath('.//w:t'):
+            for text_elem in elem.xpath('.//w:t', namespaces=namespaces):
                 if text_elem.text:
                     text_parts.append(text_elem.text)
         
@@ -86,7 +91,8 @@ def extract_cell_text(cell):
         if paragraph.text and paragraph.text.strip():
             text_parts.append(paragraph.text)
     
-    result = ' '.join(text_parts).strip()
+    # Remove duplicates (xpath and paragraph.text might overlap)
+    result = ' '.join(dict.fromkeys(text_parts)).strip()
     return result
 
 def parse_details(details_text):
